@@ -2,14 +2,17 @@
 
 # Leggi ogni riga del file devices.txt
 while IFS='=' read -r hostname ip; do
-    
-    # Fai il ping e salva il risultato
-    ping -W 2 "$ip" &>/dev/null
-    
-    # Controlla il risultato del ping
-    if [ $? -eq 0 ]; then
-        echo "$hostname ($ip) is reachable."
-    else
-        echo "$hostname ($ip) is not reachable."
-    fi
+
+        while true; do
+            ping -c 1 -i 2 "$ip" &> /dev/null
+            if [ $? -eq 0 ]; then
+                echo "$hostname ($ip) is reachable."
+            else
+                echo "$hostname ($ip) is not reachable."
+            fi
+            sleep 1  # Aggiunge un intervallo tra i ping (opzionale)
+        done $
+
+
 done < "devices.txt"
+wait
