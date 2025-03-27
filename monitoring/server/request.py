@@ -11,7 +11,7 @@ sys.path.insert(0, mon_dir)
 
 hosts_path = os.path.join(mon_dir, 'hosts.json')
 
-#qualcosa è rotto non si connette al server
+#funziona ma sovrascrive il file hosts.json
 
 with open(hosts_path, 'r') as f:
     hosts = json.load(f)['hosts']
