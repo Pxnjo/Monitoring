@@ -1,7 +1,13 @@
 from ping3 import ping
 import threading
 import signal
-import json, time
+import json, time, sys, os
+
+# Ottieni la directory corrente di setup.py
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# Costruisci il percorso del file hosts.json nella cartella 'mon'
+hosts_path = os.path.join(current_dir, 'hosts.json')
+
 
 class Check:
     def __init__(self, hosts, ip):
@@ -23,7 +29,7 @@ def monitor_host(host, ip):
             time.sleep(5)
 
 def load_hosts():
-    with open('hosts.json', 'r') as f:
+    with open(hosts_path, 'r') as f:
         return json.load(f)['hosts']
     
 def start_monitoring():
@@ -52,6 +58,3 @@ stop_event = threading.Event()
 def stop_monitoring(sig, frame):
     print("\nInterruzione rilevata. Chiusura in corso...")
     stop_event.set()
-
-if __name__ == "__main__":
-    start_monitoring()

@@ -1,7 +1,7 @@
 FROM debian:12
 
-WORKDIR /mon
-COPY ./mon /mon
+WORKDIR /monitoring
+COPY ./monitoring /monitoring
 
 RUN apt update && apt install -y \
     python3 \
@@ -9,12 +9,9 @@ RUN apt update && apt install -y \
     python3-pip \
     nano
 
-RUN chmod +x /mon/main.py
-
 RUN python3 -m venv venv
-RUN source venv/bin/activate
-RUN pip install \
-    ping3
+RUN bash -c "source venv/bin/activate && pip install requests flask ping3 "
+# RUN deactivate
 
 CMD ["/bin/bash", "-l"]
 
