@@ -1,18 +1,20 @@
 FROM debian:12
 
-WORKDIR /script_bash
-COPY ./script_bash /script_bash
-
+WORKDIR /mon
+COPY ./mon /mon
 
 RUN apt update && apt install -y \
-    nano \
-    iputils-ping \
-    dos2unix
+    python3 \
+    python3-venv \
+    python3-pip \
+    nano
 
-RUN dos2unix /script_bash/*
+RUN chmod +x /mon/main.py
 
-RUN chmod +x /script_bash/main.sh
+RUN python3 -m venv venv
+RUN source venv/bin/activate
+RUN pip install \
+    ping3
 
 CMD ["/bin/bash", "-l"]
-# CMD ["/script_bash/main.sh"]
 
