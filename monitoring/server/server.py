@@ -9,11 +9,10 @@ parent_dir = os.path.dirname(current_dir)
 mon_dir = os.path.join(parent_dir, 'mon')
 # Aggiungi la directory parent al path
 sys.path.insert(0, mon_dir)
-
 hosts_path = os.path.join(mon_dir, 'hosts.json')
 
-
 app = Flask(__name__)
+
 
 #Server API waiting for json request
 @app.route('/api/hosts', methods=['GET'])
@@ -27,7 +26,7 @@ def get_hosts():
         return jsonify({'error': str(e)}), 500
 
 def run_server():
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
 
 if __name__ == '__main__':
     run_server()
