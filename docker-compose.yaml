@@ -1,0 +1,11 @@
+services:
+  service_name:
+    build:
+      context: . # Specifica la directory del Dockerfile 
+      dockerfile: dockerfile # Nome del Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - ./monitoring/config.py:/monitoring/config.py
+      - ./monitoring/mon/hosts.json:/monitoring/mon/hosts.json
+    restart: always

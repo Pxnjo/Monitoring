@@ -1,15 +1,19 @@
-import re, json, os
+import re, json, os, sys
 # Ottieni la directory corrente di setup.py
 current_dir = os.path.dirname(os.path.abspath(__file__))
 hosts_path = os.path.join(current_dir, 'hosts.json')
 
+# Risali di una directory
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir)
+from config import this_machine_hostname, this_machine_ip, hostname, ip
+
 def get_json():
     global data
-    global hostnames
-    hostnames = ""
+    global monitoring_hostnames
     try:
         if os.path.exists(hosts_path) and os.path.getsize(hosts_path) > 0:
-            with open(hosts_path, 'r') as f: 
+            with open(hosts_path, 'r') as f:
                 data = json.load(f)
 
                 # Se il JSON è valido ma manca la struttura corretta
@@ -20,65 +24,50 @@ def get_json():
 
     # Se il file non esiste o è corrotto, inizializzalo    
     except (json.JSONDecodeError, FileNotFoundError, ValueError):
-        data = {"hosts": {}}
-
+        data = {"this_device_ip":{},"hosts": {}}
         with open(hosts_path, 'w') as f:
             json.dump(data, f, indent=4)
     
-    hostnames = list(data['hosts'].keys())
+    monitoring_hostnames = list(data['hosts'].keys())
 
-
-def update_json(hostname, ip):
-    data['hosts'][hostname] = ip
+def update_json(hostname = None, ip = None, this_machine_hostname = None, this_machine_ip = None):
+    if hostname and ip:
+        data['hosts'][hostname] = ip
+    elif this_machine_hostname and this_machine_ip:
+        data['this_device_ip'] = {this_machine_hostname: this_machine_ip}
 
     with open(hosts_path, 'w') as f:
         json.dump(data, f, indent=4)
-    
+
+#________________________________________________________________________________________________________________________#
+
+def setup():
+    global hostname, ip
+    global this_machine_hostname, this_machine_ip
+    get_json()
+    if this_machine_hostname in data['this_device_ip'].keys():
+        pass
+    else:
+        verify_ip(this_machine_ip)
+        update_json(None, None, this_machine_hostname, this_machine_ip)
+    if hostname in monitoring_hostnames:
+        pass
+    else:
+        verify_ip(ip)
+        update_json(hostname, ip, None, None)
+
+
 def verify_ip(ip = None):
     pattern = r"^(\d{1,3}\.){3}\d{1,3}$"
-    if ip is None:
-        ip = input("Enter a valid ip address: ")
 
     if re.match(pattern, ip):
         ottetti = ip.split(".")
         if all(0 <= int(octeto) <= 255 for octeto in ottetti ):
             print("Ip address valid.")
-            update_json(hostname, ip)
-            return
+            return True
         else:
             print("Ip address not valid, out of range.")
-            return verify_ip()
+            return
     else:
         print("Ip address not valid.")
-        return verify_ip()
-
-#________________________________________________________________________________________________________________________#
-
-def setup():
-    get_json()
-    response = input("Is this a new machine? (y/n/q)").lower()
-
-    while response not in ["y", "n", "q"]:
-        response = input("Wrong input. (y/n/q)")
-
-    if response == "y":
-        return set_new_entry("y")
-    if response == "n":
-        if hostnames == "":
-            print("No hosts found, set one.")
-            return set_new_entry("y")
-        return "n"
-    if response == "q":
-        exit()
-
-def set_new_entry(response): #gestisce principalmente if fatto di non trovare host nel caso si risponda "n"
-    if response == "y":
-        global hostname
-        hostname = input("Enter the hostname: ")
-        while hostname in hostnames:
-            hostname = input("Sorry hostname already exists: ")
-        ip = input("Enter the IP address: ")
-        verify_ip(ip)
-    return "y"
-
-
+        return

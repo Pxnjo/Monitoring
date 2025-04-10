@@ -5,13 +5,16 @@ COPY ./monitoring /monitoring
 
 RUN apt update && apt install -y \
     python3 \
-    python3-venv \
     python3-pip \
+    tmux \
     nano
 
-RUN python3 -m venv venv
-RUN bash -c "source venv/bin/activate && pip install requests flask ping3 "
-# RUN deactivate
+RUN bash -c "pip install requests flask ping3 --break-system-packages"
 
-CMD ["/bin/bash", "-l"]
+#Fa partire lo script che esegue python in background 
+COPY ./start.sh /start.sh 
+RUN chmod +x /start.sh
+
+CMD ["/start.sh"]
+
 
