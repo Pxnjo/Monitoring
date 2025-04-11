@@ -58,4 +58,4 @@ def main():
         api_updater.stop()  # Ferma anche il thread API
 
 if __name__ == "__main__":
-    # main() 
+    main() 
