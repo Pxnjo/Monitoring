@@ -1,11 +1,13 @@
 services:
   service_name:
+    image: monitor_img:latest  # nome dell'immagine
     build:
       context: . # Specifica la directory del Dockerfile 
       dockerfile: dockerfile # Nome del Dockerfile
+    container_name: monitor
     ports:
-      - "80:80"
+      - "5000:5000"
     volumes:
       - ./monitoring/config.py:/monitoring/config.py
       - ./monitoring/mon/hosts.json:/monitoring/mon/hosts.json
-    restart: always
+    restart: unless-stopped

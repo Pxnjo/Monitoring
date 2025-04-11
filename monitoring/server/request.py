@@ -91,14 +91,13 @@ class APIThread:
     def __init__(self, interval=60):
         """
         Inizializza un thread per l'aggiornamento periodico degli host.
-        
         Args:
             interval: Intervallo in secondi tra le richieste API (default: 60 secondi)
         """
         self.interval = interval
         self.stop_event = threading.Event()
         self.thread = None
-    
+
     def start(self):
         """" Avvia il thread per l'aggiornamento api """
         if self.thread is None or not self.thread.is_alive():
@@ -112,7 +111,7 @@ class APIThread:
             # print(f"[API-Updater] Thread avviato, aggiornamento ogni {self.interval} secondi")
             return True
         return False
-    
+
     def stop(self):
         """ Ferma il thread aggiornamento """
 
@@ -134,7 +133,7 @@ class APIThread:
                 update_hosts_from_api()
             except Exception as e:
                 print(f"[API-Updater] Errore durante l'aggiornamento: {e}")
-            
+
             # Attendi per l'intervallo specificato, controllando periodicamente se fermarsi
             for _ in range(self.interval):
                 if self.stop_event.is_set():

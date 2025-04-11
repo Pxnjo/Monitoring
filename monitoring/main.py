@@ -30,16 +30,15 @@ def main():
     
     # Avvia il server
     start_server()
-    time.sleep(5)  # Attendi qualche secondo per la stabilizzazione
-    
-    setup.setup()  # Chiamata alla funzione di setup
-    
+    time.sleep(5)
+    # Chiamata alla funzione di setup
+    setup.setup()  
     # Avvia il monitoraggio
     monitoring.start_monitoring()
     
     # Avvia il thread per le richieste API periodiche
     api_updater = request.main()  # Ottieni l'oggetto thread API
-    
+
     try:
         # Mantieni il processo principale in esecuzione
         while not monitoring.stop_event.is_set():

@@ -9,12 +9,11 @@ RUN apt update && apt install -y \
     tmux \
     nano
 
-RUN bash -c "pip install requests flask ping3 --break-system-packages"
+RUN bash -c "pip install requests pyotp flask ping3 --break-system-packages"
 
 #Fa partire lo script che esegue python in background 
 COPY ./start.sh /start.sh 
 RUN chmod +x /start.sh
 
 CMD ["/start.sh"]
-
 

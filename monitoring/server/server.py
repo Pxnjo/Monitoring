@@ -19,7 +19,6 @@ certfile = os.path.join(ssl_folder, 'server.crt')
 keyfile = os.path.join(ssl_folder, 'server.key')
 
 
-
 app = Flask(__name__)
 
 #Server API waiting for json request
