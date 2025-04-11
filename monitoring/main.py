@@ -7,13 +7,17 @@ import time
 
 # Ottieni la directory del file corrente
 current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Aggiungi le directory al path
 mon_dir = os.path.join(current_dir, 'mon')
-# Aggiungi monitoring al path
 sys.path.insert(0, mon_dir)
+
+server_dir = os.path.join(current_dir, 'server')
 
 import mon.setup as setup
 import mon.monitoring as monitoring
 import server.request as request
+import server.ssl.certs as certs
 
 def stop_monitoring(sig, frame):
     print("\nInterruzione rilevata. Chiusura in corso...")
@@ -27,10 +31,16 @@ def start_server():
 def main():
     # Registra il gestore di segnali
     signal.signal(signal.SIGINT, stop_monitoring)
+
+    if certs.certificati():
+        # Avvia il server
+        start_server()
+        time.sleep(5)
+    else:
+        print("Impossibile avviare l'API server, certificati mancanti o corrotti")
+        # Invia il segnale SIGINT al processo corrente
+        os.kill(os.getpid(), signal.SIGINT)
     
-    # Avvia il server
-    start_server()
-    time.sleep(5)
     # Chiamata alla funzione di setup
     setup.setup()  
     # Avvia il monitoraggio
@@ -48,4 +58,4 @@ def main():
         api_updater.stop()  # Ferma anche il thread API
 
 if __name__ == "__main__":
-    main() 
+    # main() 
