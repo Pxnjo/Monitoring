@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 import json, os, sys
-
 # Ottieni la directory del file corrente
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # Risali di una directory
@@ -17,7 +16,6 @@ hosts_path = os.path.join(mon_dir, 'hosts.json')
 ssl_folder = os.path.join(os.path.dirname(__file__), 'ssl')
 certfile = os.path.join(ssl_folder, 'server.crt')
 keyfile = os.path.join(ssl_folder, 'server.key')
-
 
 app = Flask(__name__)
 
@@ -51,7 +49,20 @@ def get_hosts():
             hosts = data.get('hosts', {})
             this_device_ip = data.get('this_device_ip', {})
             forgot = data.get('forgot', {})
+            unknown_hosts = data.get('unknown_hosts', [])
 
+            # Se la chiave non esiste, inizializza come lista
+            if not isinstance(unknown_hosts, list):
+                unknown_hosts = []
+            if client_ip not in hosts.values() and client_ip not in unknown_hosts:
+                unknown_hosts.append(client_ip)
+                data['unknown_hosts'] = unknown_hosts
+
+                with open(hosts_path, 'w') as f:
+                    json.dump(data, f, indent=4)
+                
+                # print(f"Ricevuta richiesta da {data['unknown_hosts']}, lato server")
+            
             # Aggiungi i componenti di this_device_ip a hosts
             hosts.update(this_device_ip)
             send = {'hosts': hosts, 'forgot': forgot}

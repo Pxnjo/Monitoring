@@ -10,4 +10,5 @@ services:
     volumes:
       - ./monitoring/config.py:/monitoring/config.py
       - ./monitoring/mon/hosts.json:/monitoring/mon/hosts.json
+      - ./monitoring/server/ssl:/monitoring/server/ssl
     restart: unless-stopped

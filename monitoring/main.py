@@ -25,7 +25,7 @@ def stop_monitoring(sig, frame):
 
 def start_server():
     # Avvia il server in un processo separato
-    server_path = os.path.join(os.path.dirname(__file__), 'server', 'server.py')
+    server_path = os.path.join(os.path.dirname(__file__), 'server', 'api_server.py')
     subprocess.Popen([sys.executable, server_path])
 
 def main():

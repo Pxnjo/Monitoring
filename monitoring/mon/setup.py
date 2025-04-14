@@ -17,7 +17,7 @@ def get_json():
                 data = json.load(f)
 
                 # Se il JSON è valido ma manca la struttura corretta
-                if not isinstance(data, dict) or 'hosts' not in data:
+                if not isinstance(data, dict) or 'hosts' not in data or 'this_device_ip' not in data:
                     raise ValueError  # Simula un errore per attivare l'except
         else:
             raise FileNotFoundError  # Se il file è vuoto, trattalo come inesistente

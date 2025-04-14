@@ -26,6 +26,7 @@ def certificati():
     #     print("Tutti i certificati della CA sono presenti.")
     if not file_server_mancanti:
         print("Sono gia presenti dei certificati per il server.")
+        return True
     else:
         print(f"Creazione Certificati server mancanti:", file_server_mancanti)
 
@@ -40,6 +41,7 @@ def certificati():
 
             if result.returncode == 0:
                 print("Richiesta firma del Server generata con successo.")
+                print(f"L'ip di questa macchina è {this_machine_ip}")
 
                 conf_ext_file = f""" 
                     authorityKeyIdentifier=keyid,issuer
@@ -51,11 +53,12 @@ def certificati():
                     IP.1 = {this_machine_ip}
                     IP.2 = 127.0.0.1
                 """
+                print(f"Il file extension è {conf_ext_file}")
                 ext_file_path = f"{current_dir}/server.ext"
                 with open(ext_file_path, 'w') as f:
                     f.write(conf_ext_file)
                 # Dopo che il file è stato scritto, puoi eseguire il comando openssl
-                crea_ext_file = f"openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 825 -sha256 -extfile {ext_file_path}"
+                crea_ext_file = f"openssl x509 -req -in {current_dir}/server.csr -CA {current_dir}/ca.crt -CAkey {current_dir}/ca.key -CAcreateserial -out {current_dir}/server.crt -days 825 -sha256 -extfile {ext_file_path}"
                 result =command_build(crea_ext_file)
                 if result.returncode == 0:
                     print("Certificato del Server firmato con successo.")

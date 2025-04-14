@@ -13,9 +13,62 @@ from config import create_totp
 hosts_path = os.path.join(mon_dir, 'hosts.json')
 # Aggiungi la directory ssl al path
 ssl_folder = os.path.join(os.path.dirname(__file__), 'ssl')
-certfile = os.path.join(ssl_folder, 'server.crt')
-keyfile = os.path.join(ssl_folder, 'server.key')
+ca_cert_path = os.path.join(ssl_folder, 'ca.crt')
 
+def api_request(ip_addresses, hosts, this_device_ip):
+    try:
+        # print(f"Controllo IP: {ip_addresses}")
+        SERVER_URL = f'https://{ip_addresses}:5000' # Faccio la richiesta per ogni ip del file hosts
+        body = {
+            'auth': create_totp()
+        }
+        response = requests.post(
+            f'{SERVER_URL}/api/hosts',
+            json=body,
+            headers={'Content-Type': 'application/json'},
+            verify = ca_cert_path
+        )
+        # print(f"[REQUEST] Sending request to {SERVER_URL}")
+        # print(f"[RESPONSE] Status: {response.status_code}, Body: {response.text}")
+        # print("Nuovo file hosts.json:",response.json())
+
+        if response.status_code == 200:
+            data = response.json()['hosts']
+            forgot = response.json().get('forgot', {})
+
+            # Aggiorna hosts solo se ci sono nuovi host
+            has_changes = False
+            for hostname, ip in data.items():
+                if hostname not in hosts and hostname not in this_device_ip: # Se l'host non è sè stesso o non è gia presente lo salva
+                    hosts[hostname] = ip
+                    has_changes = True
+
+            # Rimuovi gli host presenti in forgot
+            if forgot:
+                for hostname in forgot.keys():
+                    if hostname in hosts:
+                        del hosts[hostname]
+                        has_changes = True
+
+            # Scrivi su file solo se ci sono stati cambiamenti
+            if has_changes:
+                with open(hosts_path, 'w') as f:
+                    json.dump({'hosts': hosts, 'this_device_ip': this_device_ip}, f, indent=4)
+                print("File hosts.json aggiornato con nuovi host")
+            # else:
+            #     print("Nessun nuovo host da aggiungere")
+
+    except requests.exceptions.Timeout:
+        print("Errore: il server non ha risposto in tempo utile.")
+    
+    except requests.exceptions.ConnectionError:
+        print("Errore di connessione: il server non è raggiungibile.")
+    
+    except requests.exceptions.HTTPError as http_err:
+        print(f"Errore HTTP: {http_err}")
+    
+    except requests.exceptions.RequestException as e:
+        print(f"Errore nella richiesta: {e}")  # Fallback generico per altri errori
 
 # funziona ma sovrascrive il file hosts.json
 def update_hosts_from_api():
@@ -26,66 +79,24 @@ def update_hosts_from_api():
 
         hosts = data.get('hosts', {})
         this_device_ip = data.get('this_device_ip', {})
+        unknown_hosts = data.get('unknown_hosts', [])
         # print(f"Vecchio file hosts.json: {hosts}")
 
         for ip_addresses in hosts.copy().values():
-            # try:
-            # print(f"Controllo IP: {ip_addresses}")
-            SERVER_URL = f'https://{ip_addresses}:5000' # Prendo il server di destinazone dal primo IP dopo aver inizializzato lo script
-            body = {
-                'auth': create_totp()
-            }
-            response = requests.post(
-                f'{SERVER_URL}/api/hosts', 
-                json=body, 
-                headers={'Content-Type': 'application/json'},
-                verify = certfile
-            )
-            print(f"[REQUEST] Sending request to {SERVER_URL}")
-            print(f"[RESPONSE] Status: {response.status_code}, Body: {response.text}")
-            # print("Nuovo file hosts.json:",response.json())
+            api_request(ip_addresses, hosts, this_device_ip)
 
-            if response.status_code == 200:
-                data = response.json()['hosts']
-                forgot = response.json().get('forgot', {})
+        # print(f"Ricevuta richiesta da {unknown_hosts}, sperando succeda qualcosa")
+        if unknown_hosts:
+            for ip_addresses in unknown_hosts:
+                api_request(ip_addresses, hosts, this_device_ip)
 
-                # Aggiorna hosts solo se ci sono nuovi host
-                has_changes = False
-                for hostname, ip in data.items():
-                    if hostname not in hosts and hostname not in this_device_ip: # Se l'host non è sè stesso o non è gia presente lo salva
-                        hosts[hostname] = ip
-                        has_changes = True
-
-                # Rimuovi gli host presenti in forgot
-                if forgot:
-                    for hostname in forgot.keys():
-                        if hostname in hosts:
-                            del hosts[hostname]
-                            has_changes = True
-
-            # Scrivi su file solo se ci sono stati cambiamenti
-            if has_changes:
-                with open(hosts_path, 'w') as f:
-                    json.dump({'hosts': hosts, 'this_device_ip': this_device_ip}, f, indent=4)
-                print("File hosts.json aggiornato con nuovi host")
-            else:
-                print("Nessun nuovo host da aggiungere")
-
-            # except requests.exceptions.Timeout:
-            #     print("Errore: il server non ha risposto in tempo utile.")
-            
-            # except requests.exceptions.ConnectionError:
-            #     print("Errore di connessione: il server non è raggiungibile.")
-            
-            # except requests.exceptions.HTTPError as http_err:
-            #     print(f"Errore HTTP: {http_err}")
-            
-            # except requests.exceptions.RequestException as e:
-            #     print(f"Errore nella richiesta: {e}")  # Fallback generico per altri errori
+            # Dopo averli usati, svuota la lista nel file
+            data['unknown_hosts'] = []
+            with open(hosts_path, 'w') as f:
+                json.dump(data, f, indent=4)
 
     except Exception as e:
         print(f"Errore durante l'aggiornamento degli host: {e}")
-
 
 class APIThread:
     def __init__(self, interval=60):
