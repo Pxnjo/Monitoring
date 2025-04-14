@@ -1,8 +1,10 @@
-import requests, json, os , sys, threading
+import requests, json, os , sys, threading, logging
 import time
 
 # Ottieni la directory del file corrente
 current_dir = os.path.dirname(os.path.abspath(__file__))
+# Ottieni il path della cartella logs
+log_dir = os.path.join(current_dir, '..', 'logs')
 # Risali di una directory
 parent_dir = os.path.dirname(current_dir)
 #Entra nella directory mon
@@ -14,6 +16,15 @@ hosts_path = os.path.join(mon_dir, 'hosts.json')
 # Aggiungi la directory ssl al path
 ssl_folder = os.path.join(os.path.dirname(__file__), 'ssl')
 ca_cert_path = os.path.join(ssl_folder, 'ca.crt')
+
+logging.basicConfig(
+    level=logging.ERROR,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(os.path.join(log_dir, "requests.log")),
+        logging.StreamHandler()  # Mostra anche su console
+    ]
+)
 
 def api_request(ip_addresses, hosts, this_device_ip):
     try:
@@ -54,21 +65,21 @@ def api_request(ip_addresses, hosts, this_device_ip):
             if has_changes:
                 with open(hosts_path, 'w') as f:
                     json.dump({'hosts': hosts, 'this_device_ip': this_device_ip}, f, indent=4)
-                print("File hosts.json aggiornato con nuovi host")
+                logging.error("File hosts.json aggiornato con nuovi host")
             # else:
             #     print("Nessun nuovo host da aggiungere")
 
     except requests.exceptions.Timeout:
-        print("Errore: il server non ha risposto in tempo utile.")
+        logging.error("Errore: il server non ha risposto in tempo utile.")
     
     except requests.exceptions.ConnectionError:
-        print("Errore di connessione: il server non è raggiungibile.")
+        logging.error("Errore di connessione: il server non è raggiungibile.")
     
     except requests.exceptions.HTTPError as http_err:
-        print(f"Errore HTTP: {http_err}")
+        logging.error(f"Errore HTTP: {http_err}")
     
     except requests.exceptions.RequestException as e:
-        print(f"Errore nella richiesta: {e}")  # Fallback generico per altri errori
+        logging.error(f"Errore nella richiesta: {e}")  # Fallback generico per altri errori
 
 # funziona ma sovrascrive il file hosts.json
 def update_hosts_from_api():
@@ -96,7 +107,7 @@ def update_hosts_from_api():
                 json.dump(data, f, indent=4)
 
     except Exception as e:
-        print(f"Errore durante l'aggiornamento degli host: {e}")
+        logging.error(f"Errore durante l'aggiornamento degli host: {e}")
 
 class APIThread:
     def __init__(self, interval=60):
@@ -139,11 +150,9 @@ class APIThread:
     def _run_periodic_update(self):
         """Funzione principale del thread che esegue gli aggiornamenti periodici."""
         while not self.stop_event.is_set():
-            try:
-                # print("[API-Updater] Esecuzione aggiornamento hosts da API")
-                update_hosts_from_api()
-            except Exception as e:
-                print(f"[API-Updater] Errore durante l'aggiornamento: {e}")
+
+            # print("[API-Updater] Esecuzione aggiornamento hosts da API")
+            update_hosts_from_api()
 
             # Attendi per l'intervallo specificato, controllando periodicamente se fermarsi
             for _ in range(self.interval):

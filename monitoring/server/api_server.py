@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-import json, os, sys
+import json, os, sys, logging
 # Ottieni la directory del file corrente
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # Risali di una directory
@@ -7,6 +7,8 @@ parent_dir = os.path.dirname(current_dir)
 print(parent_dir)
 sys.path.insert(0, parent_dir)
 from config import create_totp
+# Ottieni il path della cartella logs
+log_dir = os.path.join(current_dir, '..', 'logs')
 #Entra nella directory mon
 mon_dir = os.path.join(parent_dir, 'mon')
 # Aggiungi la directory mon al path
@@ -17,6 +19,15 @@ ssl_folder = os.path.join(os.path.dirname(__file__), 'ssl')
 certfile = os.path.join(ssl_folder, 'server.crt')
 keyfile = os.path.join(ssl_folder, 'server.key')
 
+logging.basicConfig(
+    level=logging.ERROR,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(os.path.join(log_dir, "server.log")),
+        logging.StreamHandler()  # Mostra anche su console
+    ]
+)
+
 app = Flask(__name__)
 
 #Server API waiting for json request
@@ -25,6 +36,7 @@ def get_hosts():
     try:
         # Verifica se il contenuto è JSON
         if not request.is_json:
+            logging.error({'error': 'La richiesta non è in formato JSON'})
             return jsonify({'error': 'La richiesta non è in formato JSON'}), 400
 
         # Estrai il corpo JSON
@@ -32,16 +44,20 @@ def get_hosts():
         code = create_totp()
          # Verifica che il corpo JSON contenga il codice
         if 'auth' not in data:
+            logging.error({'error': 'Codice non trovato nel body della richiesta'})
             return jsonify({'error': 'Codice non trovato nel body della richiesta'}), 400
 
         elif data['auth'] != code:
+            logging.error({' error': 'Codice non valido', 'codice_atteso': code})
             return jsonify({' error': 'Codice non valido', 'codice_atteso': code}), 403
         else:
             # Ottieni l'indirizzo IP del client dalla richiesta
             # Se il server è dietro un proxy, usa 'X-Forwarded-For' per ottenere l'IP originale
             client_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
             app.logger.info(f"[{request.method}] {request.url} from {client_ip}")
-
+            """
+            !!! rimasto sul logging degli errori !!!
+            """
             # Leggi il file JSON
             with open(hosts_path, 'r') as f:
                 data = json.load(f)
