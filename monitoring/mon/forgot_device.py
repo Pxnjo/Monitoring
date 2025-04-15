@@ -27,12 +27,12 @@ def forgot_device():
     ip = hosts.pop(hostname)
     forgot[hostname] = ip
 
-    updated_data = {"hosts": hosts}
-    if forgot:
-        updated_data["forgot"] = forgot
+    # Aggiorna i campi nel dizionario originale
+    data['hosts'] = hosts
+    data['forgot'] = forgot
 
     # Salviamo tutto il dizionario originale con la nuova chiave
     with open(hosts_path, 'w') as f:
-        json.dump(updated_data, f, indent=4)
+        json.dump(data, f, indent=4)
 
 forgot_device()

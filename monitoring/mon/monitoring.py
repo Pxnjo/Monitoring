@@ -26,7 +26,8 @@ class Check:
     def ping(self):
         result = ping(self.ip, timeout=2)
         if result is not None:
-            print(f"{self.hosts} ({self.ip}): Raggiungibile ✅")
+            pass
+            # print(f"{self.hosts} ({self.ip}): Raggiungibile ✅")
         else:
             logger.error(f"{self.hosts} ({self.ip}): Non raggiungibile ❌")
 

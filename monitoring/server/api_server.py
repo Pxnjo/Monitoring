@@ -57,37 +57,14 @@ def get_hosts():
             this_device_ip = data.get('this_device_ip', {})
             forgot = data.get('forgot', {})
             unknown_hosts = data.get('unknown_hosts', [])
+            device_to_update = data.get('device_to_update', {})
 
             # Ottieni l'indirizzo IP del client dalla richiesta
             # Se il server è dietro un proxy, usa 'X-Forwarded-For' per ottenere l'IP originale
             client_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
-            logger.info(f"[{request.method}] {request.url} from {client_ip}")
+            logger.info(f"[server] Ricevuta richiesta: [{request.method}] from {client_ip}")
 
-            amount_to_forgot = len(forgot)
-            if forgot:
-                if amount_to_forgot != index_to_forgot:
-                    # Inizializza il ciclo nel caso forgot sia cambiato
-                    hosts_copy = hosts.copy()
-                    index_to_forgot = amount_to_forgot
-                
-                # Controlla se il client_ip è uno degli host
-                for hostname, ip in list(hosts_copy.items()):
-                    if client_ip == ip:
-                        logger.info(f"{client_ip} ha ricevuto forgot, lo rimuovo da hosts_copy")
-                        del hosts_copy[hostname]
-                    
-                    # Quando hosts_copy è vuoto → tutti hanno ricevuto, si può svuotare forgot
-                    if not hosts_copy:
-                        logger.info("Tutti gli host hanno ricevuto l'aggiornamento, svuoto forgot")
-                        data['forgot'] = {}
-                        index_to_forgot = 0
-
-                        with open(hosts_path, 'w') as f:
-                            json.dump(data, f, indent=4)
-
-            # Se la chiave non esiste, inizializza come lista
-            if not isinstance(unknown_hosts, list):
-                unknown_hosts = []
+            # Se l'ip non è riconosciuto viene salvato temporaneamente
             if client_ip not in hosts.values() and client_ip not in unknown_hosts:
                 unknown_hosts.append(client_ip)
                 data['unknown_hosts'] = unknown_hosts
@@ -95,16 +72,34 @@ def get_hosts():
                 # Salva l'host sconosciuto
                 with open(hosts_path, 'w') as f:
                     json.dump(data, f, indent=4)
-                logger.info(f"Ricevuta richiesta da {data['unknown_hosts']}, lato server")
-            
+                logger.info(f" [server] Ricevuta richiesta da {data['unknown_hosts']}")
+            else:
+                # Se l'ip viene riconosciuto
+                if forgot:
+                    if not device_to_update:
+                        # Crea un dizionario con tutti gli hostname impostati a False
+                        device_to_update = {hostname: False for hostname in hosts}
+                        data['device_to_update'] = device_to_update
+
+                        with open(hosts_path, 'w') as f:
+                            json.dump(data, f, indent=4)
+
+                    for host, ip in hosts.items():
+                        if ip == client_ip:
+                            hostname = host
+                        # Setta True sul host a cui ha mandato il json aggiornato
+                        device_to_update = {hostname: True}
+                        data['device_to_update'] = device_to_update
+
             # Aggiungi i componenti di this_device_ip a hosts
             hosts.update(this_device_ip)
+            # Invia gli hosts e quelli da dimenticare
             send = {'hosts': hosts, 'forgot': forgot}
 
             return jsonify(send), 200
 
     except Exception as e:
-        logger.error(f"Errore nel gestire la richiesta: {str(e)}")
+        logger.error(f" [server] Errore nel gestire la richiesta: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 def run_server():

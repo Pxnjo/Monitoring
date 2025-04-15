@@ -35,24 +35,38 @@ def api_request(ip_addresses, hosts, this_device_ip):
             headers={'Content-Type': 'application/json'},
             verify = ca_cert_path
         )
-        # print(f"[REQUEST] Sending request to {SERVER_URL}")
+        logger.info(f"[REQUEST] Sending request to {SERVER_URL}")
         # print(f"[RESPONSE] Status: {response.status_code}, Body: {response.text}")
         # print("Nuovo file hosts.json:",response.json())
 
         if response.status_code == 200:
             data = response.json()['hosts']
-            forgot = response.json().get('forgot', {})
+            income_forgot = response.json().get('forgot', {})
+            print(f"Ricevuto dict forgot: {income_forgot}")
+            with open(hosts_path, 'r') as f:
+                file_data = json.load(f)
+            
+            to_forgot = file_data.get('forgot', {})
+            combined_forgot = {**to_forgot, **income_forgot}
+            print(f"Uniti dict forgot: {income_forgot}")
 
+            # Aggiorna solo la parte 'forgot'
+            file_data['forgot'] = combined_forgot
+
+            # Salvo gli host che vanno dimenticati nel caso ricevo richieste durante il procedimento
+            with open(hosts_path, 'w') as f:
+                json.dump(file_data, f, indent=4)
+            
             # Aggiorna hosts solo se ci sono nuovi host
             has_changes = False
             for hostname, ip in data.items():
-                if hostname not in hosts and hostname not in this_device_ip: # Se l'host non è sè stesso o non è gia presente lo salva
+                if hostname not in hosts and hostname not in this_device_ip and hostname not in combined_forgot: # Se l'host non è sè stesso o da eliminare o non è gia presente lo salva
                     hosts[hostname] = ip
                     has_changes = True
 
-            # Rimuovi gli host presenti in forgot
-            if forgot:
-                for hostname in forgot.keys():
+            # Rimuovi gli host presenti in combined_forgot
+            if combined_forgot:
+                for hostname in combined_forgot.keys():
                     if hostname in hosts:
                         del hosts[hostname]
                         has_changes = True
@@ -66,10 +80,10 @@ def api_request(ip_addresses, hosts, this_device_ip):
             #     print("Nessun nuovo host da aggiungere")
 
     except requests.exceptions.Timeout:
-        logger.error("Errore: il server non ha risposto in tempo utile.")
+        logger.error(f"Errore: il server {ip_addresses} non ha risposto in tempo utile.")
     
     except requests.exceptions.ConnectionError:
-        logger.error("Errore di connessione: il server non è raggiungibile.")
+        logger.error(f"Errore di connessione: il server {ip_addresses} non e' raggiungibile.")
     
     except requests.exceptions.HTTPError as http_err:
         logger.error(f"Errore HTTP: {http_err}")
@@ -158,6 +172,6 @@ class APIThread:
 
 # Esempio di utilizzo:
 def main():
-    api_updater = APIThread(interval=20)  # Aggiorna ogni 60 secondi
+    api_updater = APIThread(interval=20)  # Aggiorna ogni 20 secondi
     api_updater.start()
     return api_updater  
