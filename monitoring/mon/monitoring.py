@@ -1,11 +1,14 @@
 from ping3 import ping
 import threading
-import json, time, os, logging
-
+import json, time, os
 # Ottieni la directory corrente di setup.py
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # Ottieni il path della cartella logs
 log_dir = os.path.join(current_dir, '..', 'logs')
+os.makedirs(log_dir, exist_ok=True)
+# Ottieni il path della cartella utils
+utils_dir = os.path.join(current_dir, '..', 'utils')
+from utils.logger import setup_logger
 # Costruisci il percorso del file hosts.json nella cartella 'mon'
 hosts_path = os.path.join(current_dir, 'hosts.json')
 
@@ -13,14 +16,7 @@ stop_event = threading.Event()
 monitoring_threads = {}  # Dizionario per tracciare i thread per ciascun host
 file_monitor_thread = None  # Thread per il monitoraggio del file
 
-logging.basicConfig(
-    level=logging.ERROR,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(os.path.join(log_dir, "monitor.log")),
-        logging.StreamHandler()  # Mostra anche su console
-    ]
-)
+logger = setup_logger("monitor_logger", os.path.join(log_dir, "monitor.log"))
 
 class Check:
     def __init__(self, hosts, ip):
@@ -32,7 +28,7 @@ class Check:
         if result is not None:
             print(f"{self.hosts} ({self.ip}): Raggiungibile ✅")
         else:
-            logging.error(f"{self.hosts} ({self.ip}): Non raggiungibile ❌")
+            logger.error(f"{self.hosts} ({self.ip}): Non raggiungibile ❌")
 
 def monitor_host(host, ip, thread_stop_event):
     """

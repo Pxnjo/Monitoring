@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-import json, os, sys, logging
+import json, os, sys
 # Ottieni la directory del file corrente
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # Risali di una directory
@@ -9,6 +9,10 @@ sys.path.insert(0, parent_dir)
 from config import create_totp
 # Ottieni il path della cartella logs
 log_dir = os.path.join(current_dir, '..', 'logs')
+os.makedirs(log_dir, exist_ok=True)
+# Ottieni il path della cartella utils
+utils_dir = os.path.join(current_dir, '..', 'utils')
+from utils.logger import setup_logger
 #Entra nella directory mon
 mon_dir = os.path.join(parent_dir, 'mon')
 # Aggiungi la directory mon al path
@@ -19,24 +23,18 @@ ssl_folder = os.path.join(os.path.dirname(__file__), 'ssl')
 certfile = os.path.join(ssl_folder, 'server.crt')
 keyfile = os.path.join(ssl_folder, 'server.key')
 
-logging.basicConfig(
-    level=logging.ERROR,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(os.path.join(log_dir, "server.log")),
-        logging.StreamHandler()  # Mostra anche su console
-    ]
-)
+logger = setup_logger("server_logger", os.path.join(log_dir, "api_server.log"))
+index_to_forgot = 0
 
 app = Flask(__name__)
-
 #Server API waiting for json request
 @app.route('/api/hosts', methods=['POST'])
 def get_hosts():
+    global index_to_forgot
     try:
         # Verifica se il contenuto è JSON
         if not request.is_json:
-            logging.error({'error': 'La richiesta non è in formato JSON'})
+            logger.error({'error': 'La richiesta non è in formato JSON'})
             return jsonify({'error': 'La richiesta non è in formato JSON'}), 400
 
         # Estrai il corpo JSON
@@ -44,20 +42,13 @@ def get_hosts():
         code = create_totp()
          # Verifica che il corpo JSON contenga il codice
         if 'auth' not in data:
-            logging.error({'error': 'Codice non trovato nel body della richiesta'})
+            logger.error({'error': 'Codice non trovato nel body della richiesta'})
             return jsonify({'error': 'Codice non trovato nel body della richiesta'}), 400
 
         elif data['auth'] != code:
-            logging.error({' error': 'Codice non valido', 'codice_atteso': code})
-            return jsonify({' error': 'Codice non valido', 'codice_atteso': code}), 403
+            logger.error({' error': 'Codice non valido'})
+            return jsonify({' error': 'Codice non valido'}), 403
         else:
-            # Ottieni l'indirizzo IP del client dalla richiesta
-            # Se il server è dietro un proxy, usa 'X-Forwarded-For' per ottenere l'IP originale
-            client_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
-            app.logger.info(f"[{request.method}] {request.url} from {client_ip}")
-            """
-            !!! rimasto sul logging degli errori !!!
-            """
             # Leggi il file JSON
             with open(hosts_path, 'r') as f:
                 data = json.load(f)
@@ -67,6 +58,33 @@ def get_hosts():
             forgot = data.get('forgot', {})
             unknown_hosts = data.get('unknown_hosts', [])
 
+            # Ottieni l'indirizzo IP del client dalla richiesta
+            # Se il server è dietro un proxy, usa 'X-Forwarded-For' per ottenere l'IP originale
+            client_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
+            logger.info(f"[{request.method}] {request.url} from {client_ip}")
+
+            amount_to_forgot = len(forgot)
+            if forgot:
+                if amount_to_forgot != index_to_forgot:
+                    # Inizializza il ciclo nel caso forgot sia cambiato
+                    hosts_copy = hosts.copy()
+                    index_to_forgot = amount_to_forgot
+                
+                # Controlla se il client_ip è uno degli host
+                for hostname, ip in list(hosts_copy.items()):
+                    if client_ip == ip:
+                        logger.info(f"{client_ip} ha ricevuto forgot, lo rimuovo da hosts_copy")
+                        del hosts_copy[hostname]
+                    
+                    # Quando hosts_copy è vuoto → tutti hanno ricevuto, si può svuotare forgot
+                    if not hosts_copy:
+                        logger.info("Tutti gli host hanno ricevuto l'aggiornamento, svuoto forgot")
+                        data['forgot'] = {}
+                        index_to_forgot = 0
+
+                        with open(hosts_path, 'w') as f:
+                            json.dump(data, f, indent=4)
+
             # Se la chiave non esiste, inizializza come lista
             if not isinstance(unknown_hosts, list):
                 unknown_hosts = []
@@ -74,10 +92,10 @@ def get_hosts():
                 unknown_hosts.append(client_ip)
                 data['unknown_hosts'] = unknown_hosts
 
+                # Salva l'host sconosciuto
                 with open(hosts_path, 'w') as f:
                     json.dump(data, f, indent=4)
-                
-                # print(f"Ricevuta richiesta da {data['unknown_hosts']}, lato server")
+                logger.info(f"Ricevuta richiesta da {data['unknown_hosts']}, lato server")
             
             # Aggiungi i componenti di this_device_ip a hosts
             hosts.update(this_device_ip)
@@ -86,7 +104,7 @@ def get_hosts():
             return jsonify(send), 200
 
     except Exception as e:
-        app.logger.error(f"Errore nel gestire la richiesta: {str(e)}")
+        logger.error(f"Errore nel gestire la richiesta: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 def run_server():
