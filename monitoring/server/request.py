@@ -71,7 +71,7 @@ def api_request(ip_addresses, hosts, this_device_ip):
             # Dizionari Ricevuti
             data = response.json()['hosts']
             income_forgot = response.json().get('forgot', {})
-            print(f"Ricevuto dict forgot: {income_forgot}")
+            # print(f"Ricevuto dict forgot: {income_forgot}")
 
             # Dizionari locali
             local_hosts_data = manage_file(hosts_path, 'r') # Tutto il file hosts
@@ -87,7 +87,7 @@ def api_request(ip_addresses, hosts, this_device_ip):
                         manage_file(hosts_path, 'w', data)
 
             combined_forgot = {**local_to_forgot, **income_forgot}
-            print(f"Uniti dict forgot: {income_forgot}")
+            # print(f"Uniti dict forgot: {income_forgot}")
 
             # Aggiorno 'forgot'
             local_hosts_data['forgot'] = combined_forgot
@@ -206,6 +206,6 @@ class APIThread:
 
 # Esempio di utilizzo:
 def main():
-    api_updater = APIThread(interval=20)  # Aggiorna ogni 20 secondi
+    api_updater = APIThread(interval=60)  # Aggiorna ogni 20 secondi
     api_updater.start()
     return api_updater  
