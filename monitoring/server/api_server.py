@@ -26,6 +26,17 @@ keyfile = os.path.join(ssl_folder, 'server.key')
 logger = setup_logger("server_logger", os.path.join(log_dir, "api_server.log"))
 index_to_forgot = 0
 
+#Funzione per gestire il file
+def manage_file(path, mode, data = None):
+    if mode == 'w':
+        with open(path, mode) as f:
+            json.dump(data, f, indent=4)
+            return None
+    elif mode == 'r':
+        with open(path, mode) as f:
+            data = json.load(f)
+            return data
+
 app = Flask(__name__)
 #Server API waiting for json request
 @app.route('/api/hosts', methods=['POST'])
@@ -38,26 +49,27 @@ def get_hosts():
             return jsonify({'error': 'La richiesta non è in formato JSON'}), 400
 
         # Estrai il corpo JSON
-        data = request.get_json()
+        requests_data = request.get_json()
         code = create_totp()
          # Verifica che il corpo JSON contenga il codice
-        if 'auth' not in data:
+        if 'auth' not in requests_data:
             logger.error({'error': 'Codice non trovato nel body della richiesta'})
             return jsonify({'error': 'Codice non trovato nel body della richiesta'}), 400
 
-        elif data['auth'] != code:
+        elif requests_data['auth'] != code:
             logger.error({' error': 'Codice non valido'})
             return jsonify({' error': 'Codice non valido'}), 403
         else:
             # Leggi il file JSON
-            with open(hosts_path, 'r') as f:
-                data = json.load(f)
+            data = manage_file(hosts_path, 'r')
 
             hosts = data.get('hosts', {})
             this_device_ip = data.get('this_device_ip', {})
             forgot = data.get('forgot', {})
+            copy_of_forgot = data.get('copy_of_forgot', {})
             unknown_hosts = data.get('unknown_hosts', [])
-            device_to_update = data.get('device_to_update', {})
+            synced_hosts = data.get('synced_hosts', {})
+            flask_not_responding = data.get('flask_not_responding', {})
 
             # Ottieni l'indirizzo IP del client dalla richiesta
             # Se il server è dietro un proxy, usa 'X-Forwarded-For' per ottenere l'IP originale
@@ -70,26 +82,35 @@ def get_hosts():
                 data['unknown_hosts'] = unknown_hosts
 
                 # Salva l'host sconosciuto
-                with open(hosts_path, 'w') as f:
-                    json.dump(data, f, indent=4)
+                manage_file(hosts_path, 'w', data)
                 logger.info(f" [server] Ricevuta richiesta da {data['unknown_hosts']}")
             else:
                 # Se l'ip viene riconosciuto
                 if forgot:
-                    if not device_to_update:
-                        # Crea un dizionario con tutti gli hostname impostati a False
-                        device_to_update = {hostname: False for hostname in hosts}
-                        data['device_to_update'] = device_to_update
+                    # Confronta i 2 dizionari e restituisce True se è cambiato
+                    changed_forgot = copy_of_forgot != forgot
 
-                        with open(hosts_path, 'w') as f:
-                            json.dump(data, f, indent=4)
+                    # Crea synced_hosts solo se i server rispondono
+                    if changed_forgot or not synced_hosts:
+                        data['copy_of_forgot'] = forgot
+                        synced_hosts = {hostname: False for hostname in hosts if hostname not in flask_not_responding}
+                        data['synced_hosts'] = synced_hosts
+                        manage_file(hosts_path, 'w', data)
 
-                    for host, ip in hosts.items():
-                        if ip == client_ip:
-                            hostname = host
+                    # Prendi l'hostname del IP da cui hai ricevuto la richiesta
+                    hostname = next((host for host, ip in hosts.items() if ip == client_ip), None)
+                    if hostname:
                         # Setta True sul host a cui ha mandato il json aggiornato
-                        device_to_update = {hostname: True}
-                        data['device_to_update'] = device_to_update
+                        synced_hosts[hostname] = True
+                        data['synced_hosts'] = synced_hosts
+                        manage_file(hosts_path, 'w', data)
+
+                    # Se tutti i valori sono True svuota la lista
+                    if all(synced_hosts.values()):
+                        data['synced_hosts'] = {}
+                        data['forgot'] = {}
+                        data['copy_of_forgot'] = {}
+                        manage_file(hosts_path, 'w', data)
 
             # Aggiungi i componenti di this_device_ip a hosts
             hosts.update(this_device_ip)
