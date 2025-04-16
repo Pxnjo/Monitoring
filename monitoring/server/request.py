@@ -33,7 +33,7 @@ def manage_file(path, mode, data = None):
             data = json.load(f)
             return data
 
-def flask_not_responding(ip_addresses):
+def server_flask_not_responding(ip_addresses):
     data = manage_file(hosts_path, 'r')
     hosts = data.get('hosts', {})
     synced_hosts = data.get('synced_hosts', {})
@@ -80,11 +80,21 @@ def api_request(ip_addresses, hosts, this_device_ip):
 
             # Se ci sono host che prima non rispondevano, toglierli siccome hanno risposto
             if flask_not_responding:
+                # Crea una lista degli host da rimuovere
+                to_remove = []
                 for host, ip in flask_not_responding.items():
-                    if ip_addresses == ip:
-                        flask_not_responding.pop(host, None)
-                        data['flask_not_responding'] = flask_not_responding
-                        manage_file(hosts_path, 'w', data)
+                    # Se l'host è stato cancellato o la connessione è riuscita elimina da flask_not_responding
+                    if host not in hosts or ip == ip_addresses:
+                        to_remove.append(host)
+
+                # Rimuovi gli host raccolti
+                for host in to_remove:
+                    flask_not_responding.pop(host, None)
+
+                # Se ci sono stati cambiamenti, aggiorna il file
+                if to_remove:
+                    data['flask_not_responding'] = flask_not_responding
+                    manage_file(hosts_path, 'w', data)
 
             combined_forgot = {**local_to_forgot, **income_forgot}
             # print(f"Uniti dict forgot: {income_forgot}")
@@ -116,16 +126,16 @@ def api_request(ip_addresses, hosts, this_device_ip):
 
     except requests.exceptions.Timeout:
         logger.error(f"Errore: il server {ip_addresses} non ha risposto in tempo utile.")
-        flask_not_responding(ip_addresses)
+        server_flask_not_responding(ip_addresses)
     except requests.exceptions.ConnectionError:
         logger.error(f"Errore di connessione: il server {ip_addresses} non e' raggiungibile.")
-        flask_not_responding(ip_addresses)
+        server_flask_not_responding(ip_addresses)
     except requests.exceptions.HTTPError as http_err:
         logger.error(f"Errore HTTP: {http_err}")
-        flask_not_responding(ip_addresses)
+        server_flask_not_responding(ip_addresses)
     except requests.exceptions.RequestException as e:
         logger.error(f"Errore nella richiesta: {e}")  # Fallback generico per altri errori
-        flask_not_responding(ip_addresses)
+        server_flask_not_responding(ip_addresses)
 
 # funziona ma sovrascrive il file hosts.json
 def update_hosts_from_api():

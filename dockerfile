@@ -1,22 +1,21 @@
-FROM python:3.11.12-slim
-
+FROM alpine:3.21
 WORKDIR /monitoring
 COPY ./monitoring /monitoring
 
-RUN apt update && apt install -y \
+RUN apk update && apk add --no-cache \
     python3 \
-    python3-pip \
-    iputils-ping \
+    py3-pip \
+    iputils \
+    openssl \
     tmux \
     nano \
-&& apt-get clean \
-&& rm -rf /var/lib/apt/lists/*
-
-RUN pip install requests pyotp flask ping3
+    bash \
+&& pip install requests pyotp flask ping3 --break-system-packages
 
 #Fa partire lo script che esegue python in background 
 COPY ./start.sh /start.sh 
 RUN chmod +x /start.sh
+# Fix potential line ending issues
+RUN sed -i 's/\r$//' /start.sh
 
-CMD ["/start.sh"]
-
+CMD ["/bin/bash", "/start.sh"]
